@@ -1,0 +1,6 @@
+@FMU.LeagueService_HostAddress = http://localhost:5072
+
+GET {{FMU.LeagueService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

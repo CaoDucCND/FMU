@@ -1,0 +1,6 @@
+@FMU.NotificationService_HostAddress = http://localhost:5002
+
+GET {{FMU.NotificationService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,6 @@
+@FMU.AuthService_HostAddress = http://localhost:5084
+
+GET {{FMU.AuthService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

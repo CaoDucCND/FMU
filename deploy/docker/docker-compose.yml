@@ -1,0 +1,203 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fmu-network
+
+  mongodb:
+    image: mongo:latest
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongo
+      - MONGO_INITDB_ROOT_PASSWORD=mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - fmu-network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fmu-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"  # RabbitMQ port
+      - "15672:15672"  # Management interface
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - fmu-network
+
+  auth-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/AuthService/FMU.AuthService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_auth;Username=postgres;Password=postgres
+    ports:
+      - "5001:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  user-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/UserService/FMU.UserService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_user;Username=postgres;Password=postgres
+    ports:
+      - "5002:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+      - auth-service
+    networks:
+      - fmu-network
+
+  team-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/TeamService/FMU.TeamService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_team;Username=postgres;Password=postgres
+    ports:
+      - "5003:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  match-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/MatchService/FMU.MatchService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MongoDbSettings__ConnectionString=mongodb://mongo:mongo@mongodb:27017
+      - MongoDbSettings__DatabaseName=fmu_match
+    ports:
+      - "5004:80"
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  league-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/LeagueService/FMU.LeagueService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_league;Username=postgres;Password=postgres
+    ports:
+      - "5005:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  transfer-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/TransferService/FMU.TransferService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_transfer;Username=postgres;Password=postgres
+    ports:
+      - "5006:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  notification-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/NotificationService/FMU.NotificationService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MongoDbSettings__ConnectionString=mongodb://mongo:mongo@mongodb:27017
+      - MongoDbSettings__DatabaseName=fmu_notification
+      - RedisSettings__ConnectionString=redis:6379
+    ports:
+      - "5007:80"
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  simulation-service:
+    build:
+      context: ../../
+      dockerfile: src/Services/SimulationService/FMU.SimulationService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fmu_simulation;Username=postgres;Password=postgres
+      - MongoDbSettings__ConnectionString=mongodb://mongo:mongo@mongodb:27017
+      - MongoDbSettings__DatabaseName=fmu_simulation
+    depends_on:
+      - postgres
+      - mongodb
+      - rabbitmq
+    networks:
+      - fmu-network
+
+  api-gateway:
+    build:
+      context: ../../
+      dockerfile: src/ApiGateways/FMU.ApiGateway/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5000:80"
+    depends_on:
+      - auth-service
+      - user-service
+      - team-service
+      - match-service
+      - league-service
+      - transfer-service
+      - notification-service
+    networks:
+      - fmu-network
+
+networks:
+  fmu-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  rabbitmq_data:
